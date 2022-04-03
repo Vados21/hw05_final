@@ -65,5 +65,3 @@ class PostURLTests(TestCase):
     def test_404_page(self):
         response = self.client.get('/wrong_url/')
         self.assertEqual(response.status_code, 404)
-
-    

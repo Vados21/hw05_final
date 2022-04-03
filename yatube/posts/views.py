@@ -1,16 +1,13 @@
-from cProfile import Profile
-from os import remove
-import re
-from webbrowser import get
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import cache_page
 
-from .forms import PostForm, CommentForm, FollowForm
-from .models import Comment, Follow, Group, Post, User
 from yatube.settings import PAGINATOR_LIST
 from yatube.utils import paginator_func
+
+from .forms import CommentForm, PostForm
+from .models import Follow, Group, Post, User
 
 
 @cache_page(20 * 15)
@@ -113,7 +110,6 @@ def add_comment(request, post_id):
 
 @login_required
 def follow_index(request):
-    #post = get_object_or_404(Post, id=post_id)
     post_list = Post.objects.filter(author__following__user=request.user).all()
     context = {
         'page_obj': paginator_func(request, post_list),

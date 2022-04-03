@@ -1,5 +1,6 @@
-from yatube.settings import PAGINATOR_LIST
 from django.core.paginator import Paginator
+
+from yatube.settings import PAGINATOR_LIST
 
 
 def paginator_func(request, post_list):

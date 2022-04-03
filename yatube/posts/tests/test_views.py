@@ -1,12 +1,12 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
-from django.urls import reverse
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from yatube.settings import PAGINATOR_LIST
+from django.test import Client, TestCase
+from django.urls import reverse
 
-from posts.models import Group, Post, Follow, Comment
+from posts.models import Comment, Follow, Group, Post
+from yatube.settings import PAGINATOR_LIST
 
 User = get_user_model()
 
@@ -188,7 +188,7 @@ class PostPagesTests(TestCase):
 
     def test_unfollow(self):
         self.client.force_login(self.follower)
-        follower = Follow.objects.create(
+        self.follower = Follow.objects.create(
             user=self.follower,
             author=self.following
         )
