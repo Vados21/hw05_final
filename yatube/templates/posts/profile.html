@@ -25,12 +25,16 @@
     </a>
   </div>
   {% else %}
+    {% if author == user %}
+      Это ваша страница
+    {% else %}
       <a
         class="btn btn-lg btn-primary"
         href="{% url 'posts:profile_follow' author.username %}" role="button"
       >
         Подписаться
       </a>
+    {% endif %}
    {% endif %}
 </div>
    

@@ -6,7 +6,7 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from yatube.settings import PAGINATOR_LIST
 
-from posts.models import Group, Post, Follow
+from posts.models import Group, Post, Follow, Comment
 
 User = get_user_model()
 
@@ -35,6 +35,16 @@ class PostPagesTests(TestCase):
             for num in range(1, 21)]
         )
         cls.post = Post.objects.get(id=1)
+        cls.follower = User.objects.create_user(
+            username='testfollower',
+            email='testfollower@test.ru',
+            password='testpass1'
+        )
+        cls.following = User.objects.create_user(
+            username='testfollowing',
+            email='testfollowing@test.ru',
+            password='testpass2'
+        )
 
     def setUp(self):
         cache.clear()
@@ -141,43 +151,132 @@ class PostPagesTests(TestCase):
                 form_field = response.context['form'].fields[value]
                 self.assertIsInstance(form_field, expected)
 
-    def check_page_text_author_slug_context(self, object):
-        obj_fileds = {
-            object.text: self.post.text,
-            object.author.username: self.author.username,
-            object.group.slug: self.group.slug,
-            object.group.description: self.group.description,
-            object.group.title: self.group.title
-        }
-        for field, context in obj_fileds.items():
-            with self.subTest(field=field):
-                self.assertEqual(field, context)
+    def test_group_list_context(self):
+        group_slug = PostPagesTests.group.slug
+        group_title = PostPagesTests.group.title
+        group_description = PostPagesTests.group.description
+        response = self.authorized_client.get(
+            reverse('posts:group_list', kwargs={'slug': group_slug}))
+        obj_1 = response.context['group']
+        group_title_test = obj_1.title
+        group_slug_test = obj_1.slug
+        group_description_test = obj_1.description
+        self.assertEqual(group_title_test, group_title)
+        self.assertEqual(group_description_test, group_description)
+        self.assertEqual(group_slug_test, group_slug)
+
+    def test_follow(self):
+        self.client.force_login(self.follower)
+        self.client.post(reverse(
+            'posts:profile_follow',
+            kwargs={'username': self.following.username}
+        ))
+        self.assertEqual(Follow.objects.count(), 1)
+        follow = Follow.objects.first()
+        self.assertEqual(follow.author, self.following)
+        self.assertEqual(follow.user, self.follower)
+
+    def test_self_follow(self):
+        self.client.force_login(self.follower)
+        url_profile_follow = reverse(
+            'posts:profile_follow',
+            kwargs={'username': self.follower.username}
+        )
+        self.assertEqual(Follow.objects.all().count(), 0)
+        self.client.get(url_profile_follow, follow=True)
+        self.assertEqual(Follow.objects.all().count(), 0)
+
+    def test_unfollow(self):
+        self.client.force_login(self.follower)
+        follower = Follow.objects.create(
+            user=self.follower,
+            author=self.following
+        )
+        self.assertEqual(Follow.objects.all().count(), 1)
+        self.client.get(reverse(
+            'posts:profile_unfollow',
+            kwargs={'username': self.following.username}
+        ))
+        self.assertEqual(Follow.objects.all().count(), 0)
+
+    def test_unauth_comments(self):
+        post_id = 10
+        self.text = 'Test comments'
+        response = self.client.get(reverse(
+            'posts:add_comment', kwargs={'post_id': post_id}),
+            {'text': 'Comment'}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Comment.objects.count(), 0)
 
 
-class FinalProject(TestCase):
+class Sprint_final_tests(TestCase):
     def setUp(self):
-        cache.clear()
         self.client = Client()
+        self.client2 = Client()
+        self.client_blogger = Client()
         self.user = User.objects.create_user(
-            username='test_user',
-            email='test_user@test.ru',
-            password='12345'
+            username='test'
         )
-        self.follower = User.objects.create_user(
-            username='testfollower',
-            email='testfollower@test.ru',
-            password='testpass1'
+        self.user2 = User.objects.create_user(
+            username='test1'
         )
-        self.following = User.objects.create_user(
-            username='testfollowing',
-            email='testfollowing@test.ru',
-            password='testpass2'
+        self.blogger = User.objects.create_user(
+            username='blogger',
         )
         self.group = Group.objects.create(
             title='test',
             slug='test',
             description='test_group'
         )
+        self.client.force_login(self.user)
+        self.client2.force_login(self.user2)
+        self.client_blogger.force_login(self.blogger)
+
+    def test_follow_index(self):
+        cache.clear()
+        post = Post.objects.create(
+            text='for followers',
+            author=self.user
+        )
+        self.client.get(
+            reverse('posts:profile_follow', args=[self.blogger.username]),
+            follow=True
+        )
+        self.client_blogger.post(
+            reverse('posts:create_post'),
+            {'text': 'for followers'},
+            follow=True
+        )
+        response = self.client.get(reverse('posts:follow_index'), follow=True)
+        self.assertContains(
+            response,
+            post.text,
+        )
+        response = self.client2.get(reverse('posts:follow_index'), follow=True)
+        self.assertNotContains(
+            response,
+            'for followers',
+            msg_prefix='текст в ленте не от автора из подписки'
+        )
+
+    def test_cache(self):
+        self.client.post(
+            reverse('posts:create_post'),
+            {'text': 'Пост для проверки кэша'}
+        )
+        response_index = self.client.get(reverse('posts:index'))
+        index_content_1 = response_index.content
+        post = response_index.context['page_obj'][0]
+        self.assertEqual(post.text, 'Пост для проверки кэша')
+        post.delete()
+        response_index_2 = self.client.get(reverse('posts:index'))
+        index_content_2 = response_index_2.content
+        self.assertEqual(index_content_1, index_content_2, 'не работает')
+        cache.clear()
+        response_index_3 = self.client.get(reverse('posts:index'))
+        index_content_3 = response_index_3.content
+        self.assertNotEqual(index_content_1, index_content_3, 'не работает')
 
     def test_image(self):
         self.client.force_login(self.user)
@@ -197,11 +296,12 @@ class FinalProject(TestCase):
             group=self.group,
             image=img
         )
+        post_detail_url = reverse('posts:post_detail', args=[1])
         urls = (
             reverse('posts:index'),
             reverse('posts:profile', args=[post.author.username]),
-            reverse('posts:post_detail', args=[post.pk]),
             reverse('posts:group_list', args=[self.group.slug]),
+            post_detail_url
         )
         for url in urls:
             with self.subTest(url=url):
@@ -210,5 +310,8 @@ class FinalProject(TestCase):
                 if paginator is not None:
                     post = response.context['page'][0]
                 else:
-                    post = response.context['post']
+                    if url == post_detail_url:
+                        post = response.context['post']
+                    else:
+                        post = response.context['page_obj']
                 self.assertContains(response, '<img', status_code=200)

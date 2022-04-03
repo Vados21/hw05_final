@@ -63,6 +63,7 @@ def post_detail(request, post_id):
     return render(request, template, context)
 
 
+@cache_page(20 * 15)
 @login_required
 def post_create(request):
     form = PostForm(request.POST or None)
@@ -112,6 +113,7 @@ def add_comment(request, post_id):
 
 @login_required
 def follow_index(request):
+    #post = get_object_or_404(Post, id=post_id)
     post_list = Post.objects.filter(author__following__user=request.user).all()
     context = {
         'page_obj': paginator_func(request, post_list),
