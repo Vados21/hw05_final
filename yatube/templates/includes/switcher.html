@@ -3,7 +3,7 @@
     <ul class="nav nav-tabs">
       <li class="nav-item">
         <a 
-          class="nav-link {% if index %}active{% endif %}"
+          class="nav-link {% if request.resolver_match.view_name  == 'posts:index' %}active{% endif %}"
           href="{% url 'posts:index' %}"
         >
           Все авторы

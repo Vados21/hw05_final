@@ -1,3 +1,5 @@
+from re import U
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -171,10 +173,10 @@ class PostPagesTests(TestCase):
             'posts:profile_follow',
             kwargs={'username': self.following.username}
         ))
-        self.assertEqual(Follow.objects.count(), 1)
-        follow = Follow.objects.first()
-        self.assertEqual(follow.author, self.following)
-        self.assertEqual(follow.user, self.follower)
+        follow_client = Follow.objects.filter(
+            author=self.following, user=self.follower
+        ).exists()
+        self.assertTrue(follow_client)
 
     def test_self_follow(self):
         self.client.force_login(self.follower)
@@ -188,19 +190,27 @@ class PostPagesTests(TestCase):
 
     def test_unfollow(self):
         self.client.force_login(self.follower)
-        self.follower = Follow.objects.create(
-            user=self.follower,
-            author=self.following
-        )
+        self.client.post(reverse(
+            'posts:profile_follow',
+            kwargs={'username': self.following.username}
+        ))
+        follow_client = Follow.objects.filter(
+            author=self.following, user=self.follower
+        ).exists()
+        self.assertTrue(follow_client)
         self.assertEqual(Follow.objects.all().count(), 1)
         self.client.get(reverse(
             'posts:profile_unfollow',
             kwargs={'username': self.following.username}
         ))
+        unfollow_client = Follow.objects.filter(
+            author=self.following, user=self.follower
+        ).exists()
+        self.assertFalse(unfollow_client)
         self.assertEqual(Follow.objects.all().count(), 0)
 
     def test_unauth_comments(self):
-        post_id = 10
+        post_id = PostPagesTests.post.id
         self.text = 'Test comments'
         response = self.client.get(reverse(
             'posts:add_comment', kwargs={'post_id': post_id}),
@@ -296,7 +306,9 @@ class Sprint_final_tests(TestCase):
             group=self.group,
             image=img
         )
-        post_detail_url = reverse('posts:post_detail', args=[1])
+        post_detail_url = reverse(
+            'posts:post_detail', args=[PostPagesTests.post.id]
+        )
         urls = (
             reverse('posts:index'),
             reverse('posts:profile', args=[post.author.username]),
