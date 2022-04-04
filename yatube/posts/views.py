@@ -5,7 +5,6 @@ from django.views.decorators.cache import cache_page
 
 from yatube.settings import PAGINATOR_LIST
 from yatube.utils import paginator_func
-
 from .forms import CommentForm, PostForm
 from .models import Follow, Group, Post, User
 
@@ -63,7 +62,7 @@ def post_detail(request, post_id):
 @cache_page(20 * 15)
 @login_required
 def post_create(request):
-    form = PostForm(request.POST or None)
+    form = PostForm(request.POST or None, files=request.FILES or None)
     if form.is_valid():
         post = form.save(commit=False)
         post.author = request.user
