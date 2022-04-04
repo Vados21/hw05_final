@@ -94,6 +94,7 @@ class PostCreateFormTests(TestCase):
                 image=f'posts/{self.uploaded.name}'
             ).exists()
         )
+        self.assertEqual('image/gif', self.uploaded.content_type)
         response_1 = Post.objects.all().first()
         response_test_text = response_1.text
         response_test_image = response_1.image
