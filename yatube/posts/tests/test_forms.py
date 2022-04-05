@@ -75,7 +75,6 @@ class PostCreateFormTests(TestCase):
                 group=PostCreateFormTests.group.id,
             ).latest('id')
         )
-        self.assertEqual('image/gif', self.uploaded.content_type)
 
     def test_create_post_with_img(self):
         form_data = {
@@ -123,13 +122,23 @@ class PostCreateFormTests(TestCase):
 
     def test_comment_form(self):
         post = PostCreateFormTests.post
+        post_id = PostCreateFormTests.post.id
+        form_data = {
+            'text': 'Тестовый комментарий'
+        }
         self.assertEqual(Comment.objects.count(), 0)
-        response = self.authorized_client.post(reverse(
-            'posts:add_comment', kwargs={'post_id': post.id}),
-            {'text': 'Comment'}
+        response = self.authorized_client.post(
+            reverse(
+                'posts:add_comment',
+                kwargs={
+                    'post_id': post.id
+                }
+            ),
+            data=form_data
         )
         self.assertEqual(Comment.objects.count(), 1)
         self.assertTrue(
-            Comment.objects.filter(text='Comment').exists()
+            Comment.objects.filter(
+                text=form_data['text'], post_id=post_id).exists()
         )
         self.assertEqual(response.status_code, 302)
